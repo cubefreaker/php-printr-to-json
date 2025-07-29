@@ -68,5 +68,3 @@ Array
 - Vite
 - CSS3 with retro styling
 - Custom PHP print_r() parser
-
-Made with 💾 for the retro web 

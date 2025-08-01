@@ -119,7 +119,7 @@ function parseArrayContents(lines, openParenIndex) {
       let value
       let nextIndex
       
-      // Check if value is an array
+      // Check if value is an array or stdClass object
       if (valueStart.trim() === 'Array') {
         // For nested arrays, we need to find where the Array declaration starts
         // The current line has "[key] => Array", so we pass the current index
@@ -127,6 +127,11 @@ function parseArrayContents(lines, openParenIndex) {
         const arrayResult = parseNestedArray(lines, index)
         value = arrayResult.value
         nextIndex = arrayResult.nextIndex
+      } else if (valueStart.trim() === 'stdClass Object') {
+        // Handle stdClass objects - they have the same structure as arrays
+        const objectResult = parseNestedArray(lines, index)
+        value = objectResult.value
+        nextIndex = objectResult.nextIndex
       } else {
         // Simple value
         value = parseSimpleValue(valueStart)

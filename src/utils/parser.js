@@ -37,8 +37,13 @@ function parseValue(lines, startIndex) {
     return parseArray(lines, index)
   }
   
+  // Check if it's a stdClass object declaration
+  if (line === 'stdClass Object' || line.startsWith('stdClass Object')) {
+    return parseStdClassObject(lines, index)
+  }
+  
   // Check if it's a simple value (shouldn't happen at top level but handle it)
-  throw new Error('Expected Array declaration at top level')
+  throw new Error('Expected Array or stdClass Object declaration at top level')
 }
 
 function parseNestedArray(lines, startIndex) {
@@ -59,6 +64,26 @@ function parseNestedArray(lines, startIndex) {
   return parseArrayContents(lines, index)
 }
 
+function parseStdClassObject(lines, startIndex) {
+  let index = startIndex
+  
+  // Skip "stdClass Object" line
+  index++
+  
+  // Skip to opening parenthesis
+  while (index < lines.length && !lines[index].includes('(')) {
+    index++
+  }
+  
+  if (index >= lines.length) {
+    throw new Error('Missing opening parenthesis for stdClass Object')
+  }
+  
+  // Parse the object contents starting from the opening parenthesis
+  // stdClass objects are always associative (not numeric arrays)
+  return parseObjectContents(lines, index)
+}
+
 function parseArray(lines, startIndex) {
   let index = startIndex
   
@@ -76,6 +101,66 @@ function parseArray(lines, startIndex) {
   
   // Now parse the array contents starting from the opening parenthesis
   return parseArrayContents(lines, index)
+}
+
+function parseObjectContents(lines, openParenIndex) {
+  let index = openParenIndex
+  const result = {}
+  
+  index++ // Skip the opening parenthesis line
+  
+  // Parse object contents
+  while (index < lines.length) {
+    const line = lines[index].trim()
+    
+    // Check for closing parenthesis
+    if (line === ')') {
+      index++
+      break
+    }
+    
+    // Skip empty lines
+    if (line === '') {
+      index++
+      continue
+    }
+    
+    // Parse key-value pair
+    const keyValueMatch = line.match(/^\[([^\]]+)\] => ?(.*)$/)
+    if (keyValueMatch) {
+      const key = keyValueMatch[1]
+      const valueStart = keyValueMatch[2]
+      
+      let value
+      let nextIndex
+      
+      // Check if value is an array or stdClass object
+      if (valueStart.trim() === 'Array') {
+        const arrayResult = parseNestedArray(lines, index)
+        value = arrayResult.value
+        nextIndex = arrayResult.nextIndex
+      } else if (valueStart.trim() === 'stdClass Object') {
+        const objectResult = parseNestedArray(lines, index)
+        value = objectResult.value
+        nextIndex = objectResult.nextIndex
+      } else {
+        // Simple value
+        value = parseSimpleValue(valueStart)
+        nextIndex = index + 1
+      }
+      
+      result[key] = value
+      index = nextIndex
+    } else {
+      // Might be a continuation of an object declaration
+      if (line === 'stdClass Object') {
+        throw new Error('Unexpected stdClass Object declaration without key at line: ' + line)
+      }
+      index++
+    }
+  }
+  
+  return { value: result, nextIndex: index }
 }
 
 function parseArrayContents(lines, openParenIndex) {
